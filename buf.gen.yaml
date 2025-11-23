@@ -1,0 +1,20 @@
+version: v2
+managed:
+  enabled: true
+plugins:
+  - local: protoc-gen-go
+    out: backend/gen
+    opt: paths=source_relative
+  - local: protoc-gen-connect-go
+    out: backend/gen
+    opt: paths=source_relative
+  
+  # i love windows !!!! :DDDDD
+  - local: "C:\\Users\\Administrator\\valorant-tracker\\frontend\\node_modules\\.bin\\protoc-gen-es.cmd"
+    out: frontend/src/gen
+    opt:
+      - target=ts
+  - local: "C:\\Users\\Administrator\\valorant-tracker\\frontend\\node_modules\\.bin\\protoc-gen-connect-es.cmd"
+    out: frontend/src/gen
+    opt:
+      - target=ts

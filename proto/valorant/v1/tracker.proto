@@ -1,0 +1,126 @@
+syntax = "proto3";
+package valorant.v1;
+
+option go_package = "valorant-tracker/gen/valorant/v1;valorantv1";
+
+message PlayerRequest {
+  string name = 1;
+  string tag = 2;
+  bool refresh = 3;
+}
+
+message PlayerResponse {
+  string puuid = 1;
+  string name = 2;
+  string tag = 3;
+  string region = 4;
+  int32 account_level = 5;
+  string card = 6;
+  string title = 7;
+  Tier current_tier = 8;
+  int32 current_rr = 9;
+  int32 total_matches = 10;
+  float kd_ratio = 11;
+  float win_rate = 12;
+}
+
+message Tier {
+  int32 id = 1;
+  string name = 2;
+}
+
+message MatchesRequest {
+  string puuid = 1;
+  bool refresh = 2;
+}
+
+message Match {
+  string match_id = 1;
+  string map_name = 2;
+  string mode = 3;
+  string started_at = 4;
+  Tier tier = 5;
+  int32 ranking_in_tier = 6;
+  int32 mmr_change = 7;
+  int32 kills = 8;
+  int32 deaths = 9;
+  int32 assists = 10;
+  int32 score = 11;
+  string team = 12;
+  bool has_won = 13;
+  string source = 14;
+  int32 team_red_score = 15;
+  int32 team_blue_score = 16;
+  string cluster = 17;
+  string version = 18;
+  string map_id = 19;
+  string character_id = 20;
+  int32 damage_taken = 21;
+  int32 damage_dealt = 22;
+}
+
+message MatchesResponse {
+  repeated Match matches = 1;
+}
+
+message SearchSuggestionsRequest {
+  string query = 1;
+}
+
+message SearchSuggestionsResponse {
+  repeated PlayerResponse suggestions = 1;
+}
+
+message PlayerMatch {
+  string puuid = 1;
+  string name = 2;
+  string tag = 3;
+  string agent = 4;
+  int32 kills = 5;
+  int32 deaths = 6;
+  int32 assists = 7;
+  int32 score = 8;
+  bool has_won = 9;
+  string team = 10;
+  Tier tier = 11;
+  string character_id = 12;
+  int32 damage_taken = 13;
+  int32 damage_dealt = 14;
+}
+
+message GetMatchRequest {
+  string match_id = 1;
+}
+
+message GetMatchResponse {
+  MatchMetadata metadata = 1;
+  repeated PlayerMatch players = 2;
+}
+
+message MatchMetadata {
+  string match_id = 1;
+  string map_name = 2;
+  string map_id = 3;
+  string game_version = 4;
+  int32 team_red_score = 5;
+  int32 team_blue_score = 6;
+  string region = 7;
+  string cluster = 8;
+  string mode = 9;
+  string season_id = 10;
+  int64 game_start = 11;
+  int32 rounds_played = 12;
+}
+
+message GetPlayerByPuuidRequest {
+  string puuid = 1;
+  bool refresh = 2;
+}
+
+service ValorantTracker {
+  rpc GetPlayer(PlayerRequest) returns (PlayerResponse);
+  rpc GetMatches(MatchesRequest) returns (MatchesResponse);
+  rpc SearchSuggestions(SearchSuggestionsRequest) returns (SearchSuggestionsResponse);
+  rpc GetMatch(GetMatchRequest) returns (GetMatchResponse);
+  rpc GetPlayerByPuuid(GetPlayerByPuuidRequest) returns (PlayerResponse);
+}
