@@ -14,6 +14,7 @@ type Config struct {
 	HDevAPIKey string
 	DBPath     string
 	ServerPort string
+	LogLevel   string
 	CacheTTL   time.Duration
 }
 
@@ -26,6 +27,7 @@ func Load(logger zerolog.Logger) (*Config, error) {
 		HDevAPIKey: getEnv("HDEV_API_KEY", ""),
 		DBPath:     getEnv("DB_PATH", "valorant.db"),
 		ServerPort: getEnv("SERVER_PORT", "8080"),
+		LogLevel:   getEnv("LOG_LEVEL", "info"),
 		CacheTTL:   5 * time.Minute,
 	}
 
@@ -36,6 +38,7 @@ func Load(logger zerolog.Logger) (*Config, error) {
 	logger.Info().
 		Str("db_path", cfg.DBPath).
 		Str("server_port", cfg.ServerPort).
+		Str("log_level", cfg.LogLevel).
 		Dur("cache_ttl", cfg.CacheTTL).
 		Msg("configuration loaded")
 

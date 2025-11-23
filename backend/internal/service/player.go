@@ -83,72 +83,98 @@ func (s *PlayerService) GetPlayer(ctx context.Context, name, tag string, refresh
 	apiCtx, apiCancel := context.WithTimeout(ctx, constants.ExternalAPITimeout)
 	defer apiCancel()
 
+	if exists && shouldRefresh {
+		s.logger.Debug().Str("puuid", player.Puuid).Msg("refreshing player, fetching account and MMR in parallel")
+
+		var accResponse *api.AccountResponse
+		var mmr *api.MMRResponse
+
+		g, gCtx := errgroup.WithContext(apiCtx)
+
+		g.Go(func() error {
+			var err error
+			accResponse, err = s.hdev.GetAccount(gCtx, name, tag)
+			if err != nil {
+				s.logger.Error().Err(err).Str("name", name).Str("tag", tag).Msg("failed to fetch account")
+				return fmt.Errorf("failed to fetch account: %w", err)
+			}
+			return nil
+		})
+
+		g.Go(func() error {
+			var err error
+			mmr, err = s.hdev.GetMMR(gCtx, player.Region, player.Puuid)
+			if err != nil {
+				s.logger.Error().Err(err).Str("puuid", player.Puuid).Msg("failed to fetch MMR")
+				return fmt.Errorf("failed to fetch MMR: %w", err)
+			}
+			return nil
+		})
+
+		if err := g.Wait(); err != nil {
+			return nil, err
+		}
+
+		player.Name = accResponse.Data.Name
+		player.Tag = accResponse.Data.Tag
+		player.Region = accResponse.Data.Region
+		player.AccountLevel = accResponse.Data.AccountLevel
+		player.Card = accResponse.Data.Card
+		player.Title = accResponse.Data.Title
+		player.CurrentTier = mmr.Data.Current.Tier.ID
+		player.CurrentTierName = mmr.Data.Current.Tier.Name
+		player.CurrentRR = mmr.Data.Current.RR
+		player.IsPartialFetch = false
+		player.LastFetchAt = time.Now()
+
+		if err := s.repo.Upsert(ctx, player); err != nil {
+			s.logger.Error().Err(err).Str("puuid", player.Puuid).Msg("failed to upsert player")
+			return nil, fmt.Errorf("failed to upsert player: %w", err)
+		}
+
+		g2 := new(errgroup.Group)
+		g2.Go(func() error {
+			time.Sleep(constants.LastFetchDelay)
+			if err := s.repo.SetLastFetchAt(player.Puuid, time.Now()); err != nil {
+				s.logger.Warn().Err(err).Str("puuid", player.Puuid).Msg("failed to set last fetch at")
+				return err
+			}
+			return nil
+		})
+		go func() {
+			if err := g2.Wait(); err != nil {
+				s.logger.Error().Err(err).Msg("background task failed")
+			}
+		}()
+
+		s.logger.Info().Str("puuid", player.Puuid).Msg("player refreshed successfully")
+		return player, nil
+	}
+
 	accResponse, err := s.hdev.GetAccount(apiCtx, name, tag)
 	if err != nil {
 		s.logger.Error().Err(err).Str("name", name).Str("tag", tag).Msg("failed to fetch account")
 		return nil, fmt.Errorf("failed to fetch account: %w", err)
 	}
 
-	player = &domain.Player{
-		Puuid:        accResponse.Data.Puuid,
-		Name:         accResponse.Data.Name,
-		Tag:          accResponse.Data.Tag,
-		Region:       accResponse.Data.Region,
-		AccountLevel: accResponse.Data.AccountLevel,
-		Card:         accResponse.Data.Card,
-		Title:        accResponse.Data.Title,
-	}
-
-	player.IsPartialFetch = false
-	if err := s.repo.SetPartialFetch(ctx, player.Puuid, player.IsPartialFetch); err != nil {
-		s.logger.Warn().Err(err).Str("puuid", player.Puuid).Msg("failed to set partial fetch")
-		return nil, fmt.Errorf("failed to set partial fetch: %w", err)
-	}
-
-	var mmr *api.MMRResponse
-	if shouldRefresh {
-		mmrCtx, mmrCancel := context.WithTimeout(ctx, constants.ExternalAPITimeout)
-		defer mmrCancel()
-
-		mmr, err = s.hdev.GetMMR(mmrCtx, player.Region, player.Puuid)
-		if err != nil {
-			s.logger.Error().Err(err).Str("puuid", player.Puuid).Msg("failed to fetch mmr")
-			return nil, fmt.Errorf("failed to fetch mmr: %w", err)
-		}
-	} else {
-		mmr = &api.MMRResponse{
-			Data: api.MMRCurrent{
-				Current: struct {
-					Tier struct {
-						ID   int    `json:"id"`
-						Name string `json:"name"`
-					} `json:"tier"`
-					RR int `json:"rr"`
-				}{
-					Tier: struct {
-						ID   int    `json:"id"`
-						Name string `json:"name"`
-					}{
-						ID:   player.CurrentTier,
-						Name: player.CurrentTierName,
-					},
-					RR: player.CurrentRR,
-				},
-			},
-		}
+	mmr, err := s.hdev.GetMMR(apiCtx, accResponse.Data.Region, accResponse.Data.Puuid)
+	if err != nil {
+		s.logger.Error().Err(err).Str("puuid", accResponse.Data.Puuid).Msg("failed to fetch MMR")
+		return nil, fmt.Errorf("failed to fetch MMR: %w", err)
 	}
 
 	player = &domain.Player{
-		Puuid:           player.Puuid,
-		Name:            player.Name,
-		Tag:             player.Tag,
-		Region:          player.Region,
-		AccountLevel:    player.AccountLevel,
-		Card:            player.Card,
-		Title:           player.Title,
+		Puuid:           accResponse.Data.Puuid,
+		Name:            accResponse.Data.Name,
+		Tag:             accResponse.Data.Tag,
+		Region:          accResponse.Data.Region,
+		AccountLevel:    accResponse.Data.AccountLevel,
+		Card:            accResponse.Data.Card,
+		Title:           accResponse.Data.Title,
 		CurrentTier:     mmr.Data.Current.Tier.ID,
 		CurrentTierName: mmr.Data.Current.Tier.Name,
 		CurrentRR:       mmr.Data.Current.RR,
+		IsPartialFetch:  false,
 	}
 
 	if err := s.repo.Upsert(ctx, player); err != nil {

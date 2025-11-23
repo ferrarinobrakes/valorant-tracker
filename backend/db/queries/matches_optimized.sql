@@ -1,0 +1,47 @@
+-- name: GetMatchesWithPlayerDataByPuuid :many
+SELECT 
+    m.match_id,
+    m.map_name,
+    m.map_id,
+    m.mode,
+    m.started_at,
+    m.season_id,
+    m.team_red_score,
+    m.team_blue_score,
+    m.region,
+    m.cluster,
+    m.version,
+    m.source,
+    m.created_at as match_created_at,
+    m.updated_at as match_updated_at,
+    mp.puuid,
+    mp.name,
+    mp.tag,
+    mp.tier,
+    mp.tier_name,
+    mp.kills,
+    mp.deaths,
+    mp.assists,
+    mp.score,
+    mp.team,
+    mp.has_won,
+    mp.character_id,
+    mp.damage_taken,
+    mp.damage_dealt,
+    mp.created_at as mp_created_at,
+    mp.updated_at as mp_updated_at,
+    mmr.id as mmr_id,
+    mmr.tier as mmr_tier,
+    mmr.tier_name as mmr_tier_name,
+    mmr.ranking_in_tier,
+    mmr.mmr_change,
+    mmr.elo,
+    mmr.date as mmr_date,
+    mmr.source as mmr_source,
+    mmr.created_at as mmr_created_at,
+    mmr.updated_at as mmr_updated_at
+FROM matches m
+INNER JOIN match_players mp ON m.match_id = mp.match_id
+LEFT JOIN mmr_histories mmr ON m.match_id = mmr.match_id AND mp.puuid = mmr.puuid
+WHERE mp.puuid = ?
+ORDER BY m.started_at DESC;

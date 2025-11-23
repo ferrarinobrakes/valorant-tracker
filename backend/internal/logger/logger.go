@@ -15,7 +15,20 @@ func New() zerolog.Logger {
 		Caller().
 		Logger()
 
-	logger = logger.Level(zerolog.InfoLevel)
+	logger = logger.Level(zerolog.DebugLevel)
+
+	return logger
+}
+
+func SetLevel(level zerolog.Level) zerolog.Logger {
+	zerolog.TimeFieldFormat = zerolog.TimeFormatUnix
+	logger := zerolog.New(os.Stdout).
+		With().
+		Timestamp().
+		Caller().
+		Logger()
+
+	logger = logger.Level(level)
 
 	return logger
 }

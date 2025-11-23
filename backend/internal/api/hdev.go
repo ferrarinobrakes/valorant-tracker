@@ -109,6 +109,11 @@ func (c *HDevClient) GetMMR(ctx context.Context, region, puuid string) (*MMRResp
 	return doRequest[MMRResponse](ctx, c, url)
 }
 
+func (c *HDevClient) GetMMRByNameTag(ctx context.Context, region, name, tag string) (*MMRResponse, error) {
+	url := fmt.Sprintf("https://api.henrikdev.xyz/valorant/v3/mmr/%s/%s/%s", region, name, tag)
+	return doRequest[MMRResponse](ctx, c, url)
+}
+
 func doRequest[T any](ctx context.Context, client *HDevClient, url string) (*T, error) {
 	req := fasthttp.AcquireRequest()
 	resp := fasthttp.AcquireResponse()

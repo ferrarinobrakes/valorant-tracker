@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"time"
 	valorantv1 "valorant-tracker/gen/proto/valorant/v1"
 	"valorant-tracker/internal/domain"
@@ -22,6 +23,12 @@ func NewTrackerServer(playerSvc *service.PlayerService, matchSvc *service.MatchS
 }
 
 func (s *TrackerServer) GetPlayer(ctx context.Context, req *connect.Request[valorantv1.PlayerRequest]) (*connect.Response[valorantv1.PlayerResponse], error) {
+	fmt.Println("[BENCH] GetPlayer")
+	start := time.Now()
+	defer func() {
+		fmt.Printf("[BENCH] GetPlayer END %d ms\n", time.Since(start).Milliseconds())
+	}()
+
 	player, err := s.playerSvc.GetPlayer(ctx, req.Msg.Name, req.Msg.Tag, req.Msg.Refresh)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -60,6 +67,12 @@ func (s *TrackerServer) GetPlayer(ctx context.Context, req *connect.Request[valo
 }
 
 func (s *TrackerServer) GetMatches(ctx context.Context, req *connect.Request[valorantv1.MatchesRequest]) (*connect.Response[valorantv1.MatchesResponse], error) {
+	fmt.Println("[BENCH] GetMatches")
+	start := time.Now()
+	defer func() {
+		fmt.Printf("[BENCH] GetMatches END %d ms\n", time.Since(start).Milliseconds())
+	}()
+
 	matches, err := s.matchSvc.GetMatchesFor(ctx, req.Msg.Puuid, req.Msg.Refresh)
 	if err != nil {
 		return nil, connect.NewError(connect.CodeInternal, err)

@@ -34,105 +34,73 @@ type MatchWithPlayers struct {
 }
 
 func (r *MatchRepository) GetByPUUID(ctx context.Context, puuid string) ([]MatchWithPlayers, error) {
-	matches, err := r.queries.GetMatchesByPuuid(ctx, puuid)
+	rows, err := r.queries.GetMatchesWithPlayerDataByPuuid(ctx, puuid)
 	if err != nil {
 		return nil, err
 	}
 
-	if len(matches) == 0 {
+	if len(rows) == 0 {
 		return []MatchWithPlayers{}, nil
 	}
 
-	matchIDs := make([]string, len(matches))
-	for i, m := range matches {
-		matchIDs[i] = m.MatchID
-	}
-
-	matchPlayers, err := r.queries.GetMatchPlayersByMatchIDs(ctx, db.GetMatchPlayersByMatchIDsParams{
-		Puuid:    puuid,
-		MatchIds: matchIDs,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	mmrHistory, err := r.queries.GetMMRHistoryByMatchIDs(ctx, db.GetMMRHistoryByMatchIDsParams{
-		Puuid:    puuid,
-		MatchIds: matchIDs,
-	})
-	if err != nil && err != sql.ErrNoRows {
-		r.logger.Warn().Err(err).Msg("failed to get MMR history")
-	}
-
-	playerStatsMap := make(map[string]db.MatchPlayer)
-	for _, mp := range matchPlayers {
-		playerStatsMap[mp.MatchID] = mp
-	}
-
-	mmrMap := make(map[string]db.MmrHistory)
-	for _, mmr := range mmrHistory {
-		mmrMap[mmr.MatchID] = mmr
-	}
-
-	results := make([]MatchWithPlayers, 0, len(matches))
-	for _, match := range matches {
-		playerStats := playerStatsMap[match.MatchID]
+	results := make([]MatchWithPlayers, len(rows))
+	for i, row := range rows {
 		result := MatchWithPlayers{
 			Match: domain.Match{
-				MatchID:       match.MatchID,
-				MapName:       match.MapName,
-				MapID:         match.MapID,
-				Mode:          match.Mode,
-				StartedAt:     match.StartedAt,
-				SeasonID:      match.SeasonID,
-				TeamRedScore:  int(match.TeamRedScore),
-				TeamBlueScore: int(match.TeamBlueScore),
-				Region:        match.Region,
-				Cluster:       match.Cluster,
-				Version:       match.Version,
-				Source:        match.Source,
-				CreatedAt:     match.CreatedAt,
-				UpdatedAt:     match.UpdatedAt,
+				MatchID:       row.MatchID,
+				MapName:       row.MapName,
+				MapID:         row.MapID,
+				Mode:          row.Mode,
+				StartedAt:     row.StartedAt,
+				SeasonID:      row.SeasonID,
+				TeamRedScore:  int(row.TeamRedScore),
+				TeamBlueScore: int(row.TeamBlueScore),
+				Region:        row.Region,
+				Cluster:       row.Cluster,
+				Version:       row.Version,
+				Source:        row.Source,
+				CreatedAt:     row.MatchCreatedAt,
+				UpdatedAt:     row.MatchUpdatedAt,
 			},
 			PlayerStats: domain.MatchPlayer{
-				MatchID:     playerStats.MatchID,
-				Puuid:       playerStats.Puuid,
-				Name:        playerStats.Name,
-				Tier:        int(playerStats.Tier),
-				TierName:    playerStats.TierName,
-				Kills:       int(playerStats.Kills),
-				Deaths:      int(playerStats.Deaths),
-				Assists:     int(playerStats.Assists),
-				Score:       int(playerStats.Score),
-				Team:        playerStats.Team,
-				HasWon:      playerStats.HasWon,
-				CharacterID: playerStats.CharacterID,
-				DamageTaken: int(playerStats.DamageTaken),
-				Tag:         playerStats.Tag,
-				DamageDealt: int(playerStats.DamageDealt),
-				CreatedAt:   playerStats.CreatedAt,
-				UpdatedAt:   playerStats.UpdatedAt,
+				MatchID:     row.MatchID,
+				Puuid:       row.Puuid,
+				Name:        row.Name,
+				Tier:        int(row.Tier),
+				TierName:    row.TierName,
+				Kills:       int(row.Kills),
+				Deaths:      int(row.Deaths),
+				Assists:     int(row.Assists),
+				Score:       int(row.Score),
+				Team:        row.Team,
+				HasWon:      row.HasWon,
+				CharacterID: row.CharacterID,
+				DamageTaken: int(row.DamageTaken),
+				Tag:         row.Tag,
+				DamageDealt: int(row.DamageDealt),
+				CreatedAt:   row.MpCreatedAt,
+				UpdatedAt:   row.MpUpdatedAt,
 			},
 		}
 
-		if mmrData, hasMmr := mmrMap[match.MatchID]; hasMmr {
+		if row.MmrID != nil {
 			result.MMRData = &domain.MMRHistory{
-				ID:            mmrData.ID,
-				MatchID:       mmrData.MatchID,
-				Puuid:         mmrData.Puuid,
-				Tier:          int(mmrData.Tier),
-				TierName:      mmrData.TierName,
-				RankingInTier: int(mmrData.RankingInTier),
-				MMRChange:     int(mmrData.MmrChange),
-				Elo:           int(mmrData.Elo),
-				Date:          mmrData.Date,
-				Source:        mmrData.Source,
-				CreatedAt:     mmrData.CreatedAt,
-				UpdatedAt:     mmrData.UpdatedAt,
+				ID:            *row.MmrID,
+				MatchID:       row.MatchID,
+				Puuid:         row.Puuid,
+				Tier:          int(*row.MmrTier),
+				TierName:      *row.MmrTierName,
+				RankingInTier: int(*row.RankingInTier),
+				MMRChange:     int(*row.MmrChange),
+				Elo:           int(*row.Elo),
+				Date:          *row.MmrDate,
+				Source:        *row.MmrSource,
+				CreatedAt:     *row.MmrCreatedAt,
+				UpdatedAt:     *row.MmrUpdatedAt,
 			}
 		}
 
-		results = append(results, result)
+		results[i] = result
 	}
 
 	return results, nil
